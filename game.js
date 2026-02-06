@@ -22,7 +22,7 @@ document.getElementById('high-score').textContent = highScore;
 
 // Load enemy image
 const enemyImage = new Image();
-enemyImage.src = 'images/enemy.jpg';
+enemyImage.src = 'images/enemy.png';
 let enemyImageLoaded = false;
 enemyImage.onload = () => {
     enemyImageLoaded = true;
