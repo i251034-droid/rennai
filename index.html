@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>グラビティ - 上昇ゲーム</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div id="ui-overlay">
+            <div id="score-display">
+                <span class="label">高度</span>
+                <span id="score">0</span>m
+            </div>
+            <div id="high-score-display">
+                <span class="label">最高記録</span>
+                <span id="high-score">0</span>m
+            </div>
+        </div>
+        <div id="start-screen" class="screen">
+            <h1 class="game-title">グラビティ</h1>
+            <p class="subtitle">無限の空へ</p>
+            <div class="controls-info">
+                <div class="key-group">
+                    <div class="key">W</div>
+                    <div class="key-row">
+                        <div class="key">A</div>
+                        <div class="key">S</div>
+                        <div class="key">D</div>
+                    </div>
+                </div>
+                <p class="control-text">移動</p>
+                <div class="key space-key">SPACE</div>
+                <p class="control-text">ジャンプ</p>
+            </div>
+            <button id="start-btn" class="glow-button">ゲームスタート</button>
+        </div>
+        <div id="game-over-screen" class="screen hidden">
+            <h2 class="game-over-title">ゲームオーバー</h2>
+            <p class="final-score">到達高度: <span id="final-score">0</span>m</p>
+            <p class="new-record hidden" id="new-record">🎉 新記録！</p>
+            <button id="restart-btn" class="glow-button">もう一度プレイ</button>
+        </div>
+    </div>
+    <script src="game.js"></script>
+</body>
+</html>
