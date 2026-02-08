@@ -178,11 +178,16 @@ function getAngleToMouse() {
 
 // Shoot function - shoots towards mouse cursor
 function shoot() {
-    if (ammo <= 0) return;
+    // Unlimited ammo at boss stage, otherwise need ammo
+    if (!bossSpawned && ammo <= 0) return;
 
     canShoot = false;
-    ammo--;
-    updateAmmoDisplay();
+
+    // Only consume ammo if not at boss stage
+    if (!bossSpawned) {
+        ammo--;
+        updateAmmoDisplay();
+    }
 
     const angle = getAngleToMouse();
     const bullet = {
@@ -196,7 +201,11 @@ function shoot() {
 
 // Update ammo display
 function updateAmmoDisplay() {
-    document.getElementById('ammo').textContent = ammo;
+    if (bossSpawned) {
+        document.getElementById('ammo').textContent = '∞';
+    } else {
+        document.getElementById('ammo').textContent = ammo;
+    }
 }
 
 // Update HP display
@@ -411,6 +420,7 @@ function updatePlayer() {
         boss.y = bossPlatformY - boss.height;
         boss.active = true;
         bossSpawned = true;
+        updateAmmoDisplay(); // Show unlimited ammo
     }
 
     // Only generate normal platforms if boss not spawned
