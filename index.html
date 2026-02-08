@@ -1,15 +1,28 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>グラビティ - 上昇ゲーム</title>
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
     <div id="game-container">
         <canvas id="gameCanvas"></canvas>
         <div id="ui-overlay">
+            <div id="hp-bar-container">
+                <span class="label">HP</span>
+                <div id="hp-bar-bg">
+                    <div id="hp-bar"></div>
+                </div>
+                <span id="hp-text">10/10</span>
+            </div>
+            <div id="ammo-display">
+                <span class="label">🔫 弾</span>
+                <span id="ammo">0</span>
+            </div>
             <div id="score-display">
                 <span class="label">高度</span>
                 <span id="score">0</span>m
@@ -34,6 +47,8 @@
                 <p class="control-text">移動</p>
                 <div class="key space-key">SPACE</div>
                 <p class="control-text">ジャンプ</p>
+                <div class="key">F</div>
+                <p class="control-text">発射</p>
             </div>
             <button id="start-btn" class="glow-button">ゲームスタート</button>
         </div>
@@ -43,7 +58,14 @@
             <p class="new-record hidden" id="new-record">🎉 新記録！</p>
             <button id="restart-btn" class="glow-button">もう一度プレイ</button>
         </div>
+        <div id="clear-screen" class="screen hidden">
+            <h2 class="clear-title">🎉 クリア！ 🎉</h2>
+            <p class="clear-message">DORAGON SYOTAROを倒した！</p>
+            <p class="final-score">最終スコア: <span id="clear-score">0</span>m</p>
+            <button id="clear-restart-btn" class="glow-button">もう一度プレイ</button>
+        </div>
     </div>
     <script src="game.js"></script>
 </body>
+
 </html>
