@@ -412,17 +412,28 @@ function updatePlayer() {
         }
     }
 
-    // Update camera and score
+    // Update camera to always follow player (both up and down)
+    const targetScreenY = canvas.height / 2.5;
     const playerScreenY = player.y;
-    if (playerScreenY < canvas.height / 2.5) {
-        const diff = canvas.height / 2.5 - playerScreenY;
-        cameraY -= diff;
-        player.y = canvas.height / 2.5;
 
-        // Update score
-        score = Math.max(score, Math.floor(-cameraY / 10));
-        document.getElementById('score').textContent = score;
+    // Camera follows player both up and down
+    if (playerScreenY < targetScreenY) {
+        const diff = targetScreenY - playerScreenY;
+        cameraY -= diff;
+        player.y = targetScreenY;
+    } else if (playerScreenY > canvas.height / 1.5 && cameraY < 0) {
+        // Follow player down (but not below start position)
+        const diff = playerScreenY - canvas.height / 1.5;
+        cameraY += diff;
+        player.y = canvas.height / 1.5;
+        // Don't let camera go below start
+        if (cameraY > 0) cameraY = 0;
     }
+
+    // Update score (max 400m for boss floor)
+    const currentHeight = Math.floor(-cameraY / 10);
+    score = Math.max(score, Math.min(currentHeight, 400));
+    document.getElementById('score').textContent = score;
 
     // Generate new platforms as player goes up
     const highestPlatform = Math.min(...platforms.map(p => p.y));
