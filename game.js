@@ -83,6 +83,7 @@ const player = {
     jumpPower: -18,
     gravity: 0.6,
     onGround: false,
+    canDoubleJump: true,
     color: '#00f5ff',
     glowColor: 'rgba(0, 245, 255, 0.5)',
     facingRight: true,
@@ -364,10 +365,18 @@ function updatePlayer() {
         player.velocityX *= 0.85; // Friction
     }
 
-    // Jump (W key or Space)
-    if ((keys.w || keys.space) && player.onGround) {
-        player.velocityY = player.jumpPower;
-        player.onGround = false;
+    // Jump (W key or Space) - supports double jump
+    if (keys.w || keys.space) {
+        if (player.onGround) {
+            player.velocityY = player.jumpPower;
+            player.onGround = false;
+            player.canDoubleJump = true; // Reset double jump when on ground
+        } else if (player.canDoubleJump) {
+            player.velocityY = player.jumpPower;
+            player.canDoubleJump = false; // Use double jump
+        }
+        keys.w = false; // Prevent holding
+        keys.space = false;
     }
 
     // Apply gravity
@@ -483,8 +492,16 @@ function updatePlayer() {
         }
     }
 
-    // Game over check (fell too far or HP depleted)
+    // Game over check (fell below start position or HP depleted)
+    // Start position is at cameraY = 0, so check if player fell below original ground level
+    const fallLimit = canvas.height - 100 - cameraY; // Original ground level in world coordinates
     if (player.y > canvas.height + 100 || player.hp <= 0) {
+        // Also check if player fell below the starting area (when cameraY < 0)
+        gameOver();
+    }
+
+    // Prevent falling below start position (respawn at start if needed)
+    if (cameraY < 0 && player.y > canvas.height + 50) {
         gameOver();
     }
 }
@@ -939,9 +956,17 @@ function drawPlayer() {
     const gunX = centerX;
     const gunY = centerY + 5;
 
+    // Check if aiming left (flip gun vertically)
+    const aimingLeft = mouseX < player.x + player.width / 2;
+
     ctx.save();
     ctx.translate(gunX, gunY);
     ctx.rotate(gunAngle);
+
+    // Flip vertically if aiming left
+    if (aimingLeft) {
+        ctx.scale(1, -1);
+    }
 
     if (gunImageLoaded) {
         // Draw gun image
