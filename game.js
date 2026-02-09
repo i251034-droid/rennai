@@ -55,6 +55,22 @@ enemyImage.onload = () => {
     enemyImageLoaded = true;
 };
 
+// Load gun image
+const gunImage = new Image();
+gunImage.src = 'images/gun.png';
+let gunImageLoaded = false;
+gunImage.onload = () => {
+    gunImageLoaded = true;
+};
+
+// Load boss image
+const bossImage = new Image();
+bossImage.src = 'images/doragon syotaro.png';
+let bossImageLoaded = false;
+bossImage.onload = () => {
+    bossImageLoaded = true;
+};
+
 // Player
 const player = {
     x: 0,
@@ -421,6 +437,13 @@ function updatePlayer() {
         boss.active = true;
         bossSpawned = true;
         updateAmmoDisplay(); // Show unlimited ammo
+
+        // Teleport player to boss platform
+        player.x = canvas.width / 2 - player.width / 2;
+        player.y = bossPlatformY - cameraY - player.height;
+        player.velocityX = 0;
+        player.velocityY = 0;
+        player.onGround = true;
     }
 
     // Only generate normal platforms if boss not spawned
@@ -622,51 +645,56 @@ function drawBoss() {
     ctx.shadowColor = 'rgba(255, 0, 0, 0.8)';
     ctx.shadowBlur = 30;
 
-    // Draw boss body (dragon shotaro style - fierce look)
-    ctx.fillStyle = boss.isCharging ? '#ff0000' : '#8b0000';
-    ctx.beginPath();
-    ctx.ellipse(boss.x + boss.width / 2, screenY + boss.height / 2, boss.width / 2, boss.height / 2, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Dragon horns
-    ctx.fillStyle = '#ffd700';
-    ctx.beginPath();
-    ctx.moveTo(boss.x + 30, screenY + 20);
-    ctx.lineTo(boss.x + 50, screenY - 30);
-    ctx.lineTo(boss.x + 70, screenY + 20);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(boss.x + boss.width - 30, screenY + 20);
-    ctx.lineTo(boss.x + boss.width - 50, screenY - 30);
-    ctx.lineTo(boss.x + boss.width - 70, screenY + 20);
-    ctx.fill();
-
-    // Eyes (angry)
-    ctx.fillStyle = '#fff';
-    ctx.beginPath();
-    ctx.ellipse(boss.x + 50, screenY + 50, 15, 20, 0, 0, Math.PI * 2);
-    ctx.ellipse(boss.x + boss.width - 50, screenY + 50, 15, 20, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Angry pupils
-    ctx.fillStyle = '#ff0000';
-    ctx.beginPath();
-    ctx.arc(boss.x + 50, screenY + 50, 8, 0, Math.PI * 2);
-    ctx.arc(boss.x + boss.width - 50, screenY + 50, 8, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Mouth (angry teeth)
-    ctx.fillStyle = '#1a1a1a';
-    ctx.beginPath();
-    ctx.rect(boss.x + 40, screenY + 90, boss.width - 80, 30);
-    ctx.fill();
-    ctx.fillStyle = '#fff';
-    for (let i = 0; i < 5; i++) {
+    if (bossImageLoaded) {
+        // Draw boss image
+        ctx.drawImage(bossImage, boss.x, screenY, boss.width, boss.height);
+    } else {
+        // Fallback: draw boss body (dragon shotaro style - fierce look)
+        ctx.fillStyle = boss.isCharging ? '#ff0000' : '#8b0000';
         ctx.beginPath();
-        ctx.moveTo(boss.x + 50 + i * 15, screenY + 90);
-        ctx.lineTo(boss.x + 57 + i * 15, screenY + 105);
-        ctx.lineTo(boss.x + 64 + i * 15, screenY + 90);
+        ctx.ellipse(boss.x + boss.width / 2, screenY + boss.height / 2, boss.width / 2, boss.height / 2, 0, 0, Math.PI * 2);
         ctx.fill();
+
+        // Dragon horns
+        ctx.fillStyle = '#ffd700';
+        ctx.beginPath();
+        ctx.moveTo(boss.x + 30, screenY + 20);
+        ctx.lineTo(boss.x + 50, screenY - 30);
+        ctx.lineTo(boss.x + 70, screenY + 20);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(boss.x + boss.width - 30, screenY + 20);
+        ctx.lineTo(boss.x + boss.width - 50, screenY - 30);
+        ctx.lineTo(boss.x + boss.width - 70, screenY + 20);
+        ctx.fill();
+
+        // Eyes (angry)
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.ellipse(boss.x + 50, screenY + 50, 15, 20, 0, 0, Math.PI * 2);
+        ctx.ellipse(boss.x + boss.width - 50, screenY + 50, 15, 20, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Angry pupils
+        ctx.fillStyle = '#ff0000';
+        ctx.beginPath();
+        ctx.arc(boss.x + 50, screenY + 50, 8, 0, Math.PI * 2);
+        ctx.arc(boss.x + boss.width - 50, screenY + 50, 8, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Mouth (angry teeth)
+        ctx.fillStyle = '#1a1a1a';
+        ctx.beginPath();
+        ctx.rect(boss.x + 40, screenY + 90, boss.width - 80, 30);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        for (let i = 0; i < 5; i++) {
+            ctx.beginPath();
+            ctx.moveTo(boss.x + 50 + i * 15, screenY + 90);
+            ctx.lineTo(boss.x + 57 + i * 15, screenY + 105);
+            ctx.lineTo(boss.x + 64 + i * 15, screenY + 90);
+            ctx.fill();
+        }
     }
 
     // Boss name
@@ -906,8 +934,8 @@ function drawPlayer() {
 
     // Draw gun pointing towards mouse
     const gunAngle = getAngleToMouse();
-    const gunLength = 35;
-    const gunWidth = 8;
+    const gunLength = 45;
+    const gunHeight = 25;
     const gunX = centerX;
     const gunY = centerY + 5;
 
@@ -915,16 +943,19 @@ function drawPlayer() {
     ctx.translate(gunX, gunY);
     ctx.rotate(gunAngle);
 
-    // Gun body
-    ctx.fillStyle = '#333';
-    ctx.fillRect(0, -gunWidth / 2, gunLength, gunWidth);
+    if (gunImageLoaded) {
+        // Draw gun image
+        ctx.drawImage(gunImage, 0, -gunHeight / 2, gunLength, gunHeight);
+    } else {
+        // Fallback: draw simple gun shape
+        ctx.fillStyle = '#333';
+        ctx.fillRect(0, -gunHeight / 4, gunLength, gunHeight / 2);
+        ctx.fillStyle = '#555';
+        ctx.fillRect(gunLength - 5, -gunHeight / 4 - 2, 10, gunHeight / 2 + 4);
+    }
 
-    // Gun barrel
-    ctx.fillStyle = '#555';
-    ctx.fillRect(gunLength - 5, -gunWidth / 2 - 2, 10, gunWidth + 4);
-
-    // Gun glow when has ammo
-    if (ammo > 0) {
+    // Gun glow when has ammo or at boss stage
+    if (ammo > 0 || bossSpawned) {
         ctx.shadowColor = 'rgba(255, 215, 0, 0.6)';
         ctx.shadowBlur = 10;
         ctx.fillStyle = '#ffd700';
