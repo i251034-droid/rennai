@@ -104,6 +104,11 @@ let ammoItems = [];
 const ammoItemSize = 25;
 const ammoSpawnChance = 0.4; // 40% chance to spawn ammo on platform
 
+// Heal items (dropped by boss)
+let healItems = [];
+const healItemSize = 20;
+const healDropChance = 0.15; // 15% chance to drop heal on boss hit
+
 // Platforms
 let platforms = [];
 const platformColors = [
@@ -335,6 +340,7 @@ function initGame() {
     lowestPlayerY = player.y;
     ammo = 0;
     bullets = [];
+    healItems = [];
 
     // Reset boss
     bossSpawned = false;
@@ -579,6 +585,17 @@ function updateBullets() {
                 boss.hp -= 10;
                 bullets.splice(i, 1);
 
+                // Chance to drop heal item
+                if (Math.random() < healDropChance) {
+                    healItems.push({
+                        x: boss.x + boss.width / 2 - healItemSize / 2,
+                        y: boss.y + boss.height,
+                        width: healItemSize,
+                        height: healItemSize,
+                        velocityY: 2
+                    });
+                }
+
                 if (boss.hp <= 0) {
                     bossDefeated = true;
                     boss.active = false;
@@ -611,9 +628,16 @@ function updateBoss() {
     if (!boss.active || bossDefeated) return;
 
     const bossScreenY = boss.y - cameraY;
+    const isEnraged = boss.hp <= boss.maxHp / 2; // Phase 2 when HP below 50%
+
+    // Speed increases in phase 2
+    const currentSpeed = isEnraged ? boss.speed * 2 : boss.speed;
+    const currentChargeSpeed = isEnraged ? boss.chargeSpeed * 1.5 : boss.chargeSpeed;
+    const chargeInterval = isEnraged ? 90 : 180; // Charge twice as often in phase 2
+    const chargeDuration = isEnraged ? 45 : 30;
 
     // Boss movement
-    boss.x += boss.speed * boss.direction;
+    boss.x += currentSpeed * boss.direction;
 
     // Bounce off screen edges
     if (boss.x <= 50) {
@@ -624,9 +648,9 @@ function updateBoss() {
         boss.direction = -1;
     }
 
-    // Attack timer - occasionally charge at player
+    // Attack timer
     boss.attackTimer++;
-    if (boss.attackTimer > 180 && !boss.isCharging) { // Every 3 seconds
+    if (boss.attackTimer > chargeInterval && !boss.isCharging) {
         boss.isCharging = true;
         boss.attackTimer = 0;
     }
@@ -634,9 +658,16 @@ function updateBoss() {
     if (boss.isCharging) {
         // Charge toward player
         const chargeDir = player.x + player.width / 2 < boss.x + boss.width / 2 ? -1 : 1;
-        boss.x += boss.chargeSpeed * chargeDir;
+        boss.x += currentChargeSpeed * chargeDir;
 
-        if (boss.attackTimer > 30) {
+        // Phase 2: Boss jumps during charge
+        if (isEnraged && boss.attackTimer === 1) {
+            boss.y -= 50; // Jump up
+        } else if (isEnraged && boss.attackTimer > 15 && boss.attackTimer <= 20) {
+            boss.y += 10; // Come back down
+        }
+
+        if (boss.attackTimer > chargeDuration) {
             boss.isCharging = false;
         }
     }
@@ -657,6 +688,58 @@ function updateBoss() {
             player.velocityY = -15;
             player.velocityX = player.x < boss.x ? -12 : 12;
         }
+    }
+}
+
+// Update heal items
+function updateHealItems() {
+    for (let i = healItems.length - 1; i >= 0; i--) {
+        const item = healItems[i];
+        item.y += item.velocityY; // Fall down
+
+        const itemScreenY = item.y - cameraY;
+
+        // Remove if off screen
+        if (itemScreenY > canvas.height + 100) {
+            healItems.splice(i, 1);
+            continue;
+        }
+
+        // Check collision with player
+        if (player.x < item.x + item.width &&
+            player.x + player.width > item.x &&
+            player.y < itemScreenY + item.height &&
+            player.y + player.height > itemScreenY) {
+            // Heal player
+            player.hp = Math.min(player.hp + 2, player.maxHp);
+            updateHPDisplay();
+            healItems.splice(i, 1);
+        }
+    }
+}
+
+// Draw heal items
+function drawHealItems() {
+    for (const item of healItems) {
+        const screenY = item.y - cameraY;
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 255, 100, 0.8)';
+        ctx.shadowBlur = 15;
+
+        // Green cross shape
+        ctx.fillStyle = '#00ff66';
+        const cx = item.x + item.width / 2;
+        const cy = screenY + item.height / 2;
+        const s = item.width / 2;
+
+        // Vertical bar
+        ctx.fillRect(cx - s / 3, cy - s, s * 2 / 3, s * 2);
+        // Horizontal bar
+        ctx.fillRect(cx - s, cy - s / 3, s * 2, s * 2 / 3);
+
+        ctx.shadowBlur = 0;
+        ctx.restore();
     }
 }
 
@@ -1032,8 +1115,10 @@ function gameLoop() {
     updateEnemies();
     updateBoss();
     updateBullets();
+    updateHealItems();
     drawPlatforms();
     drawAmmoItems();
+    drawHealItems();
     drawEnemies();
     drawBoss();
     drawBullets();
