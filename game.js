@@ -471,14 +471,13 @@ function updatePlayer() {
         generatePlatform(highestPlatform - 100 - Math.random() * 50);
     }
 
-    // Remove platforms below screen
-    platforms = platforms.filter(p => p.y - cameraY < canvas.height + 100);
+    // Keep all platforms (do not remove off-screen platforms)
 
-    // Remove enemies below screen
-    enemies = enemies.filter(e => e.y - cameraY < canvas.height + 100);
+    // Remove enemies far below screen
+    enemies = enemies.filter(e => e.y - cameraY < canvas.height + 500);
 
-    // Remove ammo items below screen
-    ammoItems = ammoItems.filter(item => item.y - cameraY < canvas.height + 100);
+    // Remove ammo items far below screen
+    ammoItems = ammoItems.filter(item => item.y - cameraY < canvas.height + 500);
 
     // Collect ammo items
     for (let i = ammoItems.length - 1; i >= 0; i--) {
