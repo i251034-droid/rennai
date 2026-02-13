@@ -32,16 +32,21 @@ let bossDefeated = false;
 const boss = {
     x: 0,
     y: 0,
+    baseY: 0, // Reference Y for hovering
     width: 150,
     height: 150,
     hp: 1000,
     maxHp: 1000,
     speed: 3,
     direction: 1,
+    velocityX: 0,
+    velocityY: 0,
     active: false,
     attackTimer: 0,
     isCharging: false,
-    chargeSpeed: 10
+    chargeSpeed: 10,
+    attackPattern: 0, // 0=hover, 1=dive, 2=sweep, 3=slam
+    hoverAngle: 0 // For floating animation
 };
 
 // Update high score display
@@ -348,6 +353,11 @@ function initGame() {
     gameCleared = false;
     boss.active = false;
     boss.hp = boss.maxHp;
+    boss.velocityX = 0;
+    boss.velocityY = 0;
+    boss.attackPattern = 0;
+    boss.hoverAngle = 0;
+    boss.attackTimer = 0;
 
     initPlatforms();
     initStars();
@@ -446,8 +456,10 @@ function updatePlayer() {
 
     // Check if we should spawn boss platform
     if (!bossSpawned && score >= GOAL_HEIGHT - 50) {
-        // Create boss platform
+        // Create boss arena with multiple platforms
         const bossPlatformY = highestPlatform - 200;
+
+        // Main ground platform (wide)
         platforms.push({
             x: canvas.width / 2 - 300,
             y: bossPlatformY,
@@ -457,10 +469,65 @@ function updatePlayer() {
             isBossPlatform: true
         });
 
-        // Spawn boss
+        // Left middle platform
+        platforms.push({
+            x: 30,
+            y: bossPlatformY - 150,
+            width: 180,
+            height: 20,
+            color: { main: '#ff4444', glow: 'rgba(255, 68, 68, 0.5)' },
+            isBossPlatform: true
+        });
+
+        // Right middle platform
+        platforms.push({
+            x: canvas.width - 210,
+            y: bossPlatformY - 150,
+            width: 180,
+            height: 20,
+            color: { main: '#ff4444', glow: 'rgba(255, 68, 68, 0.5)' },
+            isBossPlatform: true
+        });
+
+        // Center high platform
+        platforms.push({
+            x: canvas.width / 2 - 100,
+            y: bossPlatformY - 300,
+            width: 200,
+            height: 20,
+            color: { main: '#ff6600', glow: 'rgba(255, 102, 0, 0.5)' },
+            isBossPlatform: true
+        });
+
+        // Left high platform
+        platforms.push({
+            x: 60,
+            y: bossPlatformY - 400,
+            width: 150,
+            height: 20,
+            color: { main: '#ff6600', glow: 'rgba(255, 102, 0, 0.5)' },
+            isBossPlatform: true
+        });
+
+        // Right high platform
+        platforms.push({
+            x: canvas.width - 210,
+            y: bossPlatformY - 400,
+            width: 150,
+            height: 20,
+            color: { main: '#ff6600', glow: 'rgba(255, 102, 0, 0.5)' },
+            isBossPlatform: true
+        });
+
+        // Spawn boss (start hovering above center)
         boss.x = canvas.width / 2 - boss.width / 2;
-        boss.y = bossPlatformY - boss.height;
+        boss.y = bossPlatformY - 350;
+        boss.baseY = boss.y;
         boss.active = true;
+        boss.velocityX = 0;
+        boss.velocityY = 0;
+        boss.attackPattern = 0;
+        boss.hoverAngle = 0;
         bossSpawned = true;
         updateAmmoDisplay(); // Show unlimited ammo
 
@@ -628,65 +695,120 @@ function updateBoss() {
     if (!boss.active || bossDefeated) return;
 
     const bossScreenY = boss.y - cameraY;
-    const isEnraged = boss.hp <= boss.maxHp / 2; // Phase 2 when HP below 50%
+    const isEnraged = boss.hp <= boss.maxHp / 2;
 
-    // Speed increases in phase 2
-    const currentSpeed = isEnraged ? boss.speed * 2 : boss.speed;
-    const currentChargeSpeed = isEnraged ? boss.chargeSpeed * 1.5 : boss.chargeSpeed;
-    const chargeInterval = isEnraged ? 90 : 180; // Charge twice as often in phase 2
-    const chargeDuration = isEnraged ? 45 : 30;
+    // Speed multiplier in phase 2
+    const speedMult = isEnraged ? 1.8 : 1.0;
+    const attackInterval = isEnraged ? 100 : 200;
 
-    // Boss movement
-    boss.x += currentSpeed * boss.direction;
-
-    // Bounce off screen edges
-    if (boss.x <= 50) {
-        boss.x = 50;
-        boss.direction = 1;
-    } else if (boss.x + boss.width >= canvas.width - 50) {
-        boss.x = canvas.width - 50 - boss.width;
-        boss.direction = -1;
-    }
-
-    // Attack timer
     boss.attackTimer++;
-    if (boss.attackTimer > chargeInterval && !boss.isCharging) {
-        boss.isCharging = true;
-        boss.attackTimer = 0;
+    boss.hoverAngle += 0.03;
+
+    // Attack pattern state machine
+    switch (boss.attackPattern) {
+        case 0: // HOVER - float around menacingly
+            // Sinusoidal hovering movement
+            boss.x += Math.sin(boss.hoverAngle * 1.5) * 2 * speedMult;
+            boss.y = boss.baseY + Math.sin(boss.hoverAngle) * 40;
+
+            // Slowly drift toward player horizontally
+            const playerCX = player.x + player.width / 2;
+            const bossCX = boss.x + boss.width / 2;
+            boss.x += (playerCX > bossCX ? 0.5 : -0.5) * speedMult;
+
+            // Switch to attack after interval
+            if (boss.attackTimer > attackInterval) {
+                boss.attackTimer = 0;
+                // Pick random attack (1=dive, 2=sweep, 3=slam)
+                boss.attackPattern = Math.floor(Math.random() * 3) + 1;
+                if (isEnraged && Math.random() < 0.3) {
+                    boss.attackPattern = 3; // More slams when enraged
+                }
+            }
+            break;
+
+        case 1: // DIVE - fly up then dive at player
+            if (boss.attackTimer < 30) {
+                // Fly upward
+                boss.y -= 6 * speedMult;
+            } else if (boss.attackTimer < 35) {
+                // Pause at top, aim at player
+                boss.velocityX = (player.x + player.width / 2 - boss.x - boss.width / 2) * 0.1 * speedMult;
+                boss.velocityY = 12 * speedMult;
+            } else if (boss.attackTimer < 70) {
+                // Dive down
+                boss.x += boss.velocityX;
+                boss.y += boss.velocityY;
+            } else {
+                // Return to hover
+                boss.attackPattern = 0;
+                boss.attackTimer = 0;
+                boss.y = boss.baseY;
+            }
+            break;
+
+        case 2: // SWEEP - figure-8 pattern across arena
+            const sweepProgress = boss.attackTimer / 120;
+            if (sweepProgress < 1.0) {
+                const t = sweepProgress * Math.PI * 2;
+                const arenaWidth = canvas.width - boss.width - 100;
+                const arenaHeight = 300;
+                // Figure-8 / lemniscate pattern
+                boss.x = (canvas.width - boss.width) / 2 + Math.sin(t) * (arenaWidth / 2) * 0.8;
+                boss.y = boss.baseY + Math.sin(t * 2) * arenaHeight / 2;
+            } else {
+                boss.attackPattern = 0;
+                boss.attackTimer = 0;
+                boss.y = boss.baseY;
+            }
+            break;
+
+        case 3: // SLAM - hover above player then slam down
+            if (boss.attackTimer < 40) {
+                // Move above player
+                const targetX = player.x + player.width / 2 - boss.width / 2;
+                boss.x += (targetX - boss.x) * 0.08;
+                boss.y = boss.baseY - 100;
+            } else if (boss.attackTimer < 45) {
+                // Wind up (shake)
+                boss.x += (Math.random() - 0.5) * 10;
+            } else if (boss.attackTimer < 65) {
+                // SLAM DOWN
+                boss.y += 18 * speedMult;
+            } else if (boss.attackTimer < 90) {
+                // Stay on ground briefly
+            } else if (boss.attackTimer < 120) {
+                // Rise back up
+                boss.y -= 8;
+            } else {
+                boss.attackPattern = 0;
+                boss.attackTimer = 0;
+                boss.y = boss.baseY;
+            }
+            break;
     }
 
-    if (boss.isCharging) {
-        // Charge toward player
-        const chargeDir = player.x + player.width / 2 < boss.x + boss.width / 2 ? -1 : 1;
-        boss.x += currentChargeSpeed * chargeDir;
-
-        // Phase 2: Boss jumps during charge
-        if (isEnraged && boss.attackTimer === 1) {
-            boss.y -= 50; // Jump up
-        } else if (isEnraged && boss.attackTimer > 15 && boss.attackTimer <= 20) {
-            boss.y += 10; // Come back down
-        }
-
-        if (boss.attackTimer > chargeDuration) {
-            boss.isCharging = false;
-        }
-    }
+    // Keep boss within screen bounds
+    if (boss.x < 10) boss.x = 10;
+    if (boss.x + boss.width > canvas.width - 10) boss.x = canvas.width - 10 - boss.width;
 
     // Check collision with player
     if (!player.invincible) {
+        const currentBossScreenY = boss.y - cameraY;
         if (player.x < boss.x + boss.width &&
             player.x + player.width > boss.x &&
-            player.y < bossScreenY + boss.height &&
-            player.y + player.height > bossScreenY) {
-            // Take damage
-            player.hp -= 2;
+            player.y < currentBossScreenY + boss.height &&
+            player.y + player.height > currentBossScreenY) {
+            // More damage during attacks
+            const damage = boss.attackPattern === 3 ? 3 : 2;
+            player.hp -= damage;
             updateHPDisplay();
             player.invincible = true;
             player.invincibleTimer = 90;
 
-            // Knockback
-            player.velocityY = -15;
-            player.velocityX = player.x < boss.x ? -12 : 12;
+            // Strong knockback
+            player.velocityY = -18;
+            player.velocityX = player.x < boss.x ? -15 : 15;
         }
     }
 }
