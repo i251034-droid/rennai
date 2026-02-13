@@ -1815,11 +1815,9 @@ function gameOver() {
     stopBGM();
     playSFX('gameover');
 
-    // If fighting boss 2, show revival screen instead
-    if (boss2Spawned && !boss2Defeated) {
-        document.getElementById('revival-screen').classList.remove('hidden');
-        return;
-    }
+    // Show revival screen (pay to revive)
+    document.getElementById('revival-screen').classList.remove('hidden');
+    return;
 
     document.getElementById('final-score').textContent = score;
 
@@ -1855,7 +1853,14 @@ function revivePlayer() {
     player.velocityY = 0;
 
     gameRunning = true;
-    startBGM('boss2');
+    // Resume appropriate BGM
+    if (boss2Spawned && !boss2Defeated) {
+        startBGM('boss2');
+    } else if (bossSpawned && !bossDefeated) {
+        startBGM('boss');
+    } else {
+        startBGM('normal');
+    }
     gameLoop();
 }
 
