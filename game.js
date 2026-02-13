@@ -270,6 +270,14 @@ gunImage.onload = () => {
     gunImageLoaded = true;
 };
 
+// Load player image (cherrin)
+const playerImage = new Image();
+playerImage.src = 'images/cherrin.png';
+let playerImageLoaded = false;
+playerImage.onload = () => {
+    playerImageLoaded = true;
+};
+
 // Load boss image
 const bossImage = new Image();
 bossImage.src = 'images/doragon syotaro.png';
@@ -1640,93 +1648,8 @@ function drawPlatforms() {
 function drawPlayer() {
     ctx.save();
 
-    // Glow effect
-    ctx.shadowColor = player.glowColor;
-    ctx.shadowBlur = 25;
-
     const centerX = player.x + player.width / 2;
     const centerY = player.y + player.height / 2;
-
-    // Body
-    ctx.fillStyle = player.color;
-    ctx.beginPath();
-    ctx.ellipse(centerX, centerY, player.width / 2, player.height / 2, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Inner glow
-    const gradient = ctx.createRadialGradient(
-        centerX - 5, centerY - 10, 0,
-        centerX, centerY, player.width / 2
-    );
-    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
-    gradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.2)');
-    gradient.addColorStop(1, 'transparent');
-
-    ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.ellipse(centerX, centerY, player.width / 2, player.height / 2, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Eyes
-    ctx.shadowBlur = 0;
-    const eyeY = centerY - 5;
-    const eyeOffset = player.facingRight ? 5 : -5;
-
-    ctx.fillStyle = '#fff';
-    ctx.beginPath();
-    ctx.ellipse(centerX - 8 + eyeOffset, eyeY, 6, 8, 0, 0, Math.PI * 2);
-    ctx.ellipse(centerX + 8 + eyeOffset, eyeY, 6, 8, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Pupils
-    ctx.fillStyle = '#1a1a3a';
-    const pupilOffset = player.facingRight ? 2 : -2;
-    ctx.beginPath();
-    ctx.arc(centerX - 8 + eyeOffset + pupilOffset, eyeY, 3, 0, Math.PI * 2);
-    ctx.arc(centerX + 8 + eyeOffset + pupilOffset, eyeY, 3, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Draw gun pointing towards mouse
-    const gunAngle = getAngleToMouse();
-    const gunLength = 45;
-    const gunHeight = 25;
-    const gunX = centerX;
-    const gunY = centerY + 5;
-
-    // Check if aiming left (flip gun vertically)
-    const aimingLeft = mouseX < player.x + player.width / 2;
-
-    ctx.save();
-    ctx.translate(gunX, gunY);
-    ctx.rotate(gunAngle);
-
-    // Flip vertically if aiming left
-    if (aimingLeft) {
-        ctx.scale(1, -1);
-    }
-
-    if (gunImageLoaded) {
-        // Draw gun image
-        ctx.drawImage(gunImage, 0, -gunHeight / 2, gunLength, gunHeight);
-    } else {
-        // Fallback: draw simple gun shape
-        ctx.fillStyle = '#333';
-        ctx.fillRect(0, -gunHeight / 4, gunLength, gunHeight / 2);
-        ctx.fillStyle = '#555';
-        ctx.fillRect(gunLength - 5, -gunHeight / 4 - 2, 10, gunHeight / 2 + 4);
-    }
-
-    // Gun glow when has ammo or at boss stage
-    if (ammo > 0 || bossSpawned) {
-        ctx.shadowColor = 'rgba(255, 215, 0, 0.6)';
-        ctx.shadowBlur = 10;
-        ctx.fillStyle = '#ffd700';
-        ctx.beginPath();
-        ctx.arc(gunLength + 5, 0, 3, 0, Math.PI * 2);
-        ctx.fill();
-    }
-
-    ctx.restore();
 
     // Trail effect when moving up
     if (player.velocityY < -5) {
@@ -1738,11 +1661,75 @@ function drawPlayer() {
         }
     }
 
-    // Flash effect when invincible
-    if (player.invincible && Math.floor(player.invincibleTimer / 5) % 2 === 0) {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+    // Glow effect
+    ctx.shadowColor = player.glowColor;
+    ctx.shadowBlur = 25;
+
+    // Draw player image
+    if (playerImageLoaded) {
+        ctx.save();
+        // Flip horizontally based on facing direction
+        if (!player.facingRight) {
+            ctx.translate(player.x + player.width, player.y);
+            ctx.scale(-1, 1);
+            ctx.drawImage(playerImage, 0, 0, player.width, player.height);
+        } else {
+            ctx.drawImage(playerImage, player.x, player.y, player.width, player.height);
+        }
+        ctx.restore();
+    } else {
+        // Fallback: draw ellipse
+        ctx.fillStyle = player.color;
         ctx.beginPath();
         ctx.ellipse(centerX, centerY, player.width / 2, player.height / 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    ctx.shadowBlur = 0;
+
+    // Draw gun pointing towards mouse
+    const gunAngle = getAngleToMouse();
+    const gunLength = 45;
+    const gunHeight = 25;
+    const gunX = centerX;
+    const gunY = centerY + 5;
+
+    const aimingLeft = mouseX < player.x + player.width / 2;
+
+    ctx.save();
+    ctx.translate(gunX, gunY);
+    ctx.rotate(gunAngle);
+
+    if (aimingLeft) {
+        ctx.scale(1, -1);
+    }
+
+    if (gunImageLoaded) {
+        ctx.drawImage(gunImage, 0, -gunHeight / 2, gunLength, gunHeight);
+    } else {
+        ctx.fillStyle = '#333';
+        ctx.fillRect(0, -gunHeight / 4, gunLength, gunHeight / 2);
+        ctx.fillStyle = '#555';
+        ctx.fillRect(gunLength - 5, -gunHeight / 4 - 2, 10, gunHeight / 2 + 4);
+    }
+
+    // Gun glow
+    if (ammo > 0 || bossSpawned || fullAuto) {
+        ctx.shadowColor = fullAuto ? 'rgba(255, 50, 50, 0.6)' : 'rgba(255, 215, 0, 0.6)';
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = fullAuto ? '#ff3333' : '#ffd700';
+        ctx.beginPath();
+        ctx.arc(gunLength + 5, 0, 3, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    ctx.restore();
+
+    // Flash effect when invincible
+    if (player.invincible && Math.floor(player.invincibleTimer / 5) % 2 === 0) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.beginPath();
+        ctx.ellipse(centerX, centerY, player.width / 2 + 3, player.height / 2 + 3, 0, 0, Math.PI * 2);
         ctx.fill();
     }
 
