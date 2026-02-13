@@ -60,9 +60,21 @@
         </div>
         <div id="clear-screen" class="screen hidden">
             <h2 class="clear-title">🎉 クリア！ 🎉</h2>
-            <p class="clear-message">DORAGON SYOTAROを倒した！</p>
+            <p class="clear-message">DORAGONを倒した！</p>
             <p class="final-score">最終スコア: <span id="clear-score">0</span>m</p>
             <button id="clear-restart-btn" class="glow-button">もう一度プレイ</button>
+        </div>
+        <div id="revival-screen" class="screen hidden">
+            <h2 class="revival-title">💀 やられてしまった... 💀</h2>
+            <p class="revival-question">復活しますか？</p>
+            <div class="revival-price-box">
+                <p class="revival-price">💎 490ジェム</p>
+                <p class="revival-price-yen">（¥490相当）</p>
+            </div>
+            <p class="revival-benefit">✨ HP全回復して復活！ ✨</p>
+            <button id="revival-btn" class="revival-button">復活する（¥490）</button>
+            <button id="revival-give-up-btn" class="give-up-button">諦める（無料）</button>
+            <p class="revival-note">※ 実際に課金されることはありません</p>
         </div>
     </div>
     <script src="game.js"></script>

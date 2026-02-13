@@ -10,6 +10,203 @@ function resizeCanvas() {
 resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
 
+// ========== AUDIO SYSTEM ==========
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+let bgmGain = null;
+let sfxGain = null;
+let currentBGM = null;
+let bgmStarted = false;
+
+function initAudio() {
+    if (audioCtx) return;
+    audioCtx = new AudioCtx();
+    bgmGain = audioCtx.createGain();
+    bgmGain.gain.value = 0.3;
+    bgmGain.connect(audioCtx.destination);
+    sfxGain = audioCtx.createGain();
+    sfxGain.gain.value = 0.4;
+    sfxGain.connect(audioCtx.destination);
+}
+
+// Sound effect: short synthesized sound
+function playSFX(type) {
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(sfxGain);
+
+    switch (type) {
+        case 'shoot':
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(800, now);
+            osc.frequency.exponentialRampToValueAtTime(200, now + 0.1);
+            gain.gain.setValueAtTime(0.3, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+            osc.start(now);
+            osc.stop(now + 0.1);
+            break;
+        case 'hit':
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(300, now);
+            osc.frequency.exponentialRampToValueAtTime(100, now + 0.15);
+            gain.gain.setValueAtTime(0.4, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+            osc.start(now);
+            osc.stop(now + 0.15);
+            break;
+        case 'damage':
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(200, now);
+            osc.frequency.exponentialRampToValueAtTime(80, now + 0.3);
+            gain.gain.setValueAtTime(0.5, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+            osc.start(now);
+            osc.stop(now + 0.3);
+            break;
+        case 'jump':
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(300, now);
+            osc.frequency.exponentialRampToValueAtTime(600, now + 0.12);
+            gain.gain.setValueAtTime(0.2, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+            osc.start(now);
+            osc.stop(now + 0.12);
+            break;
+        case 'heal':
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(523, now);
+            osc.frequency.setValueAtTime(659, now + 0.1);
+            osc.frequency.setValueAtTime(784, now + 0.2);
+            gain.gain.setValueAtTime(0.3, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+            osc.start(now);
+            osc.stop(now + 0.35);
+            break;
+        case 'gameover':
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(400, now);
+            osc.frequency.exponentialRampToValueAtTime(50, now + 0.8);
+            gain.gain.setValueAtTime(0.4, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
+            osc.start(now);
+            osc.stop(now + 0.8);
+            break;
+        case 'clear':
+            osc.type = 'sine';
+            const notes = [523, 659, 784, 1047];
+            notes.forEach((freq, i) => {
+                osc.frequency.setValueAtTime(freq, now + i * 0.15);
+            });
+            gain.gain.setValueAtTime(0.4, now);
+            gain.gain.setValueAtTime(0.4, now + 0.5);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
+            osc.start(now);
+            osc.stop(now + 0.8);
+            break;
+        case 'powerup':
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(440, now);
+            osc.frequency.setValueAtTime(554, now + 0.1);
+            osc.frequency.setValueAtTime(659, now + 0.2);
+            osc.frequency.setValueAtTime(880, now + 0.3);
+            gain.gain.setValueAtTime(0.3, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+            osc.start(now);
+            osc.stop(now + 0.5);
+            break;
+    }
+}
+
+// BGM system using oscillators
+function startBGM(type) {
+    if (!audioCtx) return;
+    stopBGM();
+
+    const tempo = type === 'boss2' ? 160 : type === 'boss' ? 140 : 120;
+    const beatDuration = 60 / tempo;
+
+    const melodies = {
+        normal: [
+            261, 329, 392, 329, 261, 329, 392, 523,
+            440, 392, 349, 329, 261, 329, 392, 261
+        ],
+        boss: [
+            165, 196, 220, 165, 196, 247, 220, 165,
+            196, 220, 262, 247, 220, 196, 165, 196
+        ],
+        boss2: [
+            130, 155, 165, 196, 130, 155, 165, 220,
+            130, 165, 196, 262, 247, 220, 196, 165
+        ]
+    };
+
+    const melody = melodies[type] || melodies.normal;
+    let noteIndex = 0;
+    let bgmInterval;
+
+    function playNote() {
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+
+        // Melody
+        const osc1 = audioCtx.createOscillator();
+        const g1 = audioCtx.createGain();
+        osc1.connect(g1);
+        g1.connect(bgmGain);
+        osc1.type = type === 'normal' ? 'triangle' : 'sawtooth';
+        osc1.frequency.value = melody[noteIndex % melody.length];
+        g1.gain.setValueAtTime(0.2, now);
+        g1.gain.exponentialRampToValueAtTime(0.01, now + beatDuration * 0.9);
+        osc1.start(now);
+        osc1.stop(now + beatDuration * 0.9);
+
+        // Bass (every 2 beats)
+        if (noteIndex % 2 === 0) {
+            const osc2 = audioCtx.createOscillator();
+            const g2 = audioCtx.createGain();
+            osc2.connect(g2);
+            g2.connect(bgmGain);
+            osc2.type = 'sine';
+            osc2.frequency.value = melody[noteIndex % melody.length] / 2;
+            g2.gain.setValueAtTime(0.15, now);
+            g2.gain.exponentialRampToValueAtTime(0.01, now + beatDuration * 1.8);
+            osc2.start(now);
+            osc2.stop(now + beatDuration * 1.8);
+        }
+
+        // Percussion (kick-like)
+        if (noteIndex % 4 === 0) {
+            const osc3 = audioCtx.createOscillator();
+            const g3 = audioCtx.createGain();
+            osc3.connect(g3);
+            g3.connect(bgmGain);
+            osc3.type = 'sine';
+            osc3.frequency.setValueAtTime(150, now);
+            osc3.frequency.exponentialRampToValueAtTime(30, now + 0.1);
+            g3.gain.setValueAtTime(0.3, now);
+            g3.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+            osc3.start(now);
+            osc3.stop(now + 0.1);
+        }
+
+        noteIndex++;
+    }
+
+    playNote();
+    bgmInterval = setInterval(playNote, beatDuration * 1000);
+    currentBGM = { interval: bgmInterval, type };
+}
+
+function stopBGM() {
+    if (currentBGM) {
+        clearInterval(currentBGM.interval);
+        currentBGM = null;
+    }
+}
+
 // Game state
 let gameRunning = false;
 let score = 0;
@@ -17,16 +214,21 @@ let highScore = parseInt(localStorage.getItem('gravityHighScore')) || 0;
 let cameraY = 0;
 let lowestPlayerY = 0;
 let gameCleared = false;
+let fullAuto = false; // Full-auto gun after boss 1
+let fullAutoTimer = 0;
+let mouseDown = false; // Track mouse held down
 
 // Mouse position for aiming
 let mouseX = 0;
 let mouseY = 0;
 
 // Goal and Boss settings
-const GOAL_HEIGHT = 350; // 350m goal
-const BOSS_PLATFORM_Y = -GOAL_HEIGHT * 10; // Convert to game units
+const GOAL_HEIGHT_1 = 350; // 350m boss 1
+const GOAL_HEIGHT_2 = 750; // 750m boss 2
 let bossSpawned = false;
 let bossDefeated = false;
+let boss2Spawned = false;
+let boss2Defeated = false;
 
 // Boss
 const boss = {
@@ -74,6 +276,35 @@ bossImage.src = 'images/doragon syotaro.png';
 let bossImageLoaded = false;
 bossImage.onload = () => {
     bossImageLoaded = true;
+};
+
+// Load boss 2 image
+const boss2Image = new Image();
+boss2Image.src = 'images/doragon.png';
+let boss2ImageLoaded = false;
+boss2Image.onload = () => {
+    boss2ImageLoaded = true;
+};
+
+// Boss 2 (Stronger)
+const boss2 = {
+    x: 0,
+    y: 0,
+    baseY: 0,
+    width: 250,
+    height: 250,
+    hp: 3000,
+    maxHp: 3000,
+    speed: 6,
+    direction: 1,
+    velocityX: 0,
+    velocityY: 0,
+    active: false,
+    attackTimer: 0,
+    isCharging: false,
+    chargeSpeed: 18,
+    attackPattern: 0,
+    hoverAngle: 0
 };
 
 // Player
@@ -154,14 +385,17 @@ document.addEventListener('mousemove', (e) => {
 });
 
 document.addEventListener('mousedown', (e) => {
-    if (gameRunning && canShoot && e.button === 0) {
-        shoot();
+    if (e.button === 0) {
+        mouseDown = true;
+        if (gameRunning && canShoot) {
+            shoot();
+        }
     }
 });
 
 document.addEventListener('mouseup', (e) => {
     if (e.button === 0) {
-        canShoot = true;
+        mouseDown = false;
     }
 });
 
@@ -192,7 +426,6 @@ document.addEventListener('keyup', (e) => {
     if (key === ' ' || e.code === 'Space') keys.space = false;
     if (key === 'f') {
         keys.f = false;
-        canShoot = true;
     }
 });
 
@@ -205,13 +438,13 @@ function getAngleToMouse() {
 
 // Shoot function - shoots towards mouse cursor
 function shoot() {
-    // Unlimited ammo at boss stage, otherwise need ammo
-    if (!bossSpawned && ammo <= 0) return;
+    // Unlimited ammo at boss stage or full-auto mode, otherwise need ammo
+    if (!bossSpawned && !fullAuto && ammo <= 0) return;
 
     canShoot = false;
 
-    // Only consume ammo if not at boss stage
-    if (!bossSpawned) {
+    // Only consume ammo if not at boss stage and not full auto
+    if (!bossSpawned && !fullAuto) {
         ammo--;
         updateAmmoDisplay();
     }
@@ -224,11 +457,21 @@ function shoot() {
         velocityY: Math.sin(angle) * bulletSpeed
     };
     bullets.push(bullet);
+    playSFX('shoot');
+
+    // Full auto: reset canShoot quickly
+    if (fullAuto) {
+        setTimeout(() => { canShoot = true; }, 80); // Fast fire rate
+    } else {
+        setTimeout(() => { canShoot = true; }, 200); // Normal fire rate
+    }
 }
 
 // Update ammo display
 function updateAmmoDisplay() {
-    if (bossSpawned) {
+    if (fullAuto) {
+        document.getElementById('ammo').textContent = 'AUTO';
+    } else if (bossSpawned || boss2Spawned) {
         document.getElementById('ammo').textContent = '∞';
     } else {
         document.getElementById('ammo').textContent = ammo;
@@ -351,6 +594,8 @@ function initGame() {
     bossSpawned = false;
     bossDefeated = false;
     gameCleared = false;
+    fullAuto = false;
+    fullAutoTimer = 0;
     boss.active = false;
     boss.hp = boss.maxHp;
     boss.velocityX = 0;
@@ -358,6 +603,17 @@ function initGame() {
     boss.attackPattern = 0;
     boss.hoverAngle = 0;
     boss.attackTimer = 0;
+
+    // Reset boss 2
+    boss2Spawned = false;
+    boss2Defeated = false;
+    boss2.active = false;
+    boss2.hp = boss2.maxHp;
+    boss2.velocityX = 0;
+    boss2.velocityY = 0;
+    boss2.attackPattern = 0;
+    boss2.hoverAngle = 0;
+    boss2.attackTimer = 0;
 
     initPlatforms();
     initStars();
@@ -386,10 +642,12 @@ function updatePlayer() {
         if (player.onGround) {
             player.velocityY = player.jumpPower;
             player.onGround = false;
-            player.canDoubleJump = true; // Reset double jump when on ground
+            player.canDoubleJump = true;
+            playSFX('jump');
         } else if (player.canDoubleJump) {
             player.velocityY = player.jumpPower;
-            player.canDoubleJump = false; // Use double jump
+            player.canDoubleJump = false;
+            playSFX('jump');
         }
         keys.w = false; // Prevent holding
         keys.space = false;
@@ -446,16 +704,16 @@ function updatePlayer() {
         if (cameraY > 0) cameraY = 0;
     }
 
-    // Update score (max 400m for boss floor)
+    // Update score (max 800m for boss 2 floor)
     const currentHeight = Math.floor(-cameraY / 10);
-    score = Math.max(score, Math.min(currentHeight, 400));
+    score = Math.max(score, Math.min(currentHeight, 800));
     document.getElementById('score').textContent = score;
 
     // Generate new platforms as player goes up
     const highestPlatform = Math.min(...platforms.map(p => p.y));
 
-    // Check if we should spawn boss platform
-    if (!bossSpawned && score >= GOAL_HEIGHT - 50) {
+    // Check if we should spawn boss 1 platform
+    if (!bossSpawned && score >= GOAL_HEIGHT_1 - 50) {
         // Create boss arena with multiple platforms
         const bossPlatformY = highestPlatform - 200;
 
@@ -529,6 +787,7 @@ function updatePlayer() {
         boss.attackPattern = 0;
         boss.hoverAngle = 0;
         bossSpawned = true;
+        startBGM('boss');
         updateAmmoDisplay(); // Show unlimited ammo
 
         // Teleport player to boss platform
@@ -539,8 +798,67 @@ function updatePlayer() {
         player.onGround = true;
     }
 
-    // Only generate normal platforms if boss not spawned
+    // Check if we should spawn boss 2 platform
+    if (bossDefeated && !boss2Spawned && score >= GOAL_HEIGHT_2 - 50) {
+        const boss2PlatformY = highestPlatform - 200;
+
+        // Main wide platform
+        platforms.push({
+            x: canvas.width / 2 - 350,
+            y: boss2PlatformY,
+            width: 700,
+            height: 30,
+            color: { main: '#8800ff', glow: 'rgba(136, 0, 255, 0.6)' },
+            isBossPlatform: true
+        });
+
+        // 3-level arena with more platforms
+        const levels = [-150, -300, -450];
+        const positions = [
+            [{ x: 20, w: 160 }, { x: canvas.width - 180, w: 160 }],
+            [{ x: canvas.width / 2 - 120, w: 240 }],
+            [{ x: 50, w: 140 }, { x: canvas.width / 2 - 70, w: 140 }, { x: canvas.width - 190, w: 140 }]
+        ];
+
+        levels.forEach((ly, li) => {
+            positions[li].forEach(p => {
+                platforms.push({
+                    x: p.x,
+                    y: boss2PlatformY + ly,
+                    width: p.w,
+                    height: 20,
+                    color: { main: '#aa44ff', glow: 'rgba(170, 68, 255, 0.5)' },
+                    isBossPlatform: true
+                });
+            });
+        });
+
+        // Spawn boss 2
+        boss2.x = canvas.width / 2 - boss2.width / 2;
+        boss2.y = boss2PlatformY - 400;
+        boss2.baseY = boss2.y;
+        boss2.active = true;
+        boss2.velocityX = 0;
+        boss2.velocityY = 0;
+        boss2.attackPattern = 0;
+        boss2.hoverAngle = 0;
+        boss2Spawned = true;
+        startBGM('boss2');
+
+        // Teleport player
+        player.x = canvas.width / 2 - player.width / 2;
+        player.y = boss2PlatformY - cameraY - player.height;
+        player.velocityX = 0;
+        player.velocityY = 0;
+        player.onGround = true;
+    }
+
+    // Only generate normal platforms if no boss active
     if (!bossSpawned && highestPlatform - cameraY > -200) {
+        generatePlatform(highestPlatform - 100 - Math.random() * 50);
+    }
+    // Continue generating after boss 1 defeated but before boss 2
+    if (bossDefeated && !boss2Spawned && highestPlatform - cameraY > -200) {
         generatePlatform(highestPlatform - 100 - Math.random() * 50);
     }
 
@@ -614,6 +932,7 @@ function updateEnemies() {
                 // Take damage
                 player.hp--;
                 updateHPDisplay();
+                playSFX('damage');
                 player.invincible = true;
                 player.invincibleTimer = 90; // 1.5 seconds at 60fps
 
@@ -641,15 +960,15 @@ function updateBullets() {
             continue;
         }
 
-        // Check collision with boss
+        // Check collision with boss 1
         if (boss.active && !bossDefeated) {
             const bossScreenY = boss.y - cameraY;
             if (bullet.x < boss.x + boss.width &&
                 bullet.x + bulletSize > boss.x &&
                 bullet.y < bossScreenY + boss.height &&
                 bullet.y + bulletSize > bossScreenY) {
-                // Boss hit
                 boss.hp -= 10;
+                playSFX('hit');
                 bullets.splice(i, 1);
 
                 // Chance to drop heal item
@@ -666,6 +985,43 @@ function updateBullets() {
                 if (boss.hp <= 0) {
                     bossDefeated = true;
                     boss.active = false;
+                    fullAuto = true;
+                    playSFX('powerup');
+                    stopBGM();
+                    startBGM('normal');
+                    player.hp = player.maxHp;
+                    updateHPDisplay();
+                }
+                continue;
+            }
+        }
+
+        // Check collision with boss 2
+        if (boss2.active && !boss2Defeated) {
+            const boss2ScreenY = boss2.y - cameraY;
+            if (bullet.x < boss2.x + boss2.width &&
+                bullet.x + bulletSize > boss2.x &&
+                bullet.y < boss2ScreenY + boss2.height &&
+                bullet.y + bulletSize > boss2ScreenY) {
+                boss2.hp -= 10;
+                playSFX('hit');
+                bullets.splice(i, 1);
+
+                // Higher chance to drop heal item
+                if (Math.random() < healDropChance * 1.5) {
+                    healItems.push({
+                        x: boss2.x + boss2.width / 2 - healItemSize / 2,
+                        y: boss2.y + boss2.height,
+                        width: healItemSize,
+                        height: healItemSize,
+                        velocityY: 2
+                    });
+                }
+
+                if (boss2.hp <= 0) {
+                    boss2Defeated = true;
+                    boss2.active = false;
+                    playSFX('clear');
                     gameClear();
                 }
                 continue;
@@ -803,6 +1159,7 @@ function updateBoss() {
             const damage = boss.attackPattern === 3 ? 3 : 2;
             player.hp -= damage;
             updateHPDisplay();
+            playSFX('damage');
             player.invincible = true;
             player.invincibleTimer = 90;
 
@@ -811,6 +1168,169 @@ function updateBoss() {
             player.velocityX = player.x < boss.x ? -15 : 15;
         }
     }
+}
+
+// Update boss 2 (Dragon)
+function updateBoss2() {
+    if (!boss2.active || boss2Defeated) return;
+
+    const isEnraged = boss2.hp <= boss2.maxHp / 2;
+    const speedMult = isEnraged ? 2.5 : 1.3;
+    const attackInterval = isEnraged ? 60 : 120;
+
+    boss2.attackTimer++;
+    boss2.hoverAngle += 0.04;
+
+    switch (boss2.attackPattern) {
+        case 0: // HOVER - aggressive tracking
+            boss2.x += Math.sin(boss2.hoverAngle * 2) * 3 * speedMult;
+            boss2.y = boss2.baseY + Math.sin(boss2.hoverAngle) * 50;
+
+            const pCX = player.x + player.width / 2;
+            const b2CX = boss2.x + boss2.width / 2;
+            boss2.x += (pCX > b2CX ? 1.0 : -1.0) * speedMult;
+
+            if (boss2.attackTimer > attackInterval) {
+                boss2.attackTimer = 0;
+                boss2.attackPattern = Math.floor(Math.random() * 3) + 1;
+                if (isEnraged && Math.random() < 0.4) {
+                    boss2.attackPattern = 3; // More slams
+                }
+            }
+            break;
+
+        case 1: // DIVE - faster, sharper dive
+            if (boss2.attackTimer < 25) {
+                boss2.y -= 8 * speedMult;
+            } else if (boss2.attackTimer < 30) {
+                boss2.velocityX = (player.x + player.width / 2 - boss2.x - boss2.width / 2) * 0.12 * speedMult;
+                boss2.velocityY = 16 * speedMult;
+            } else if (boss2.attackTimer < 60) {
+                boss2.x += boss2.velocityX;
+                boss2.y += boss2.velocityY;
+            } else {
+                boss2.attackPattern = 0;
+                boss2.attackTimer = 0;
+                boss2.y = boss2.baseY;
+            }
+            break;
+
+        case 2: // SWEEP - tornado spiral
+            const sp = boss2.attackTimer / 100;
+            if (sp < 1.0) {
+                const t = sp * Math.PI * 3;
+                const arenaW = canvas.width - boss2.width - 60;
+                const arenaH = 400;
+                boss2.x = (canvas.width - boss2.width) / 2 + Math.sin(t) * (arenaW / 2) * 0.85;
+                boss2.y = boss2.baseY + Math.cos(t * 1.5) * arenaH / 2;
+            } else {
+                boss2.attackPattern = 0;
+                boss2.attackTimer = 0;
+                boss2.y = boss2.baseY;
+            }
+            break;
+
+        case 3: // METEOR SLAM - huge impact
+            if (boss2.attackTimer < 35) {
+                const tx = player.x + player.width / 2 - boss2.width / 2;
+                boss2.x += (tx - boss2.x) * 0.1;
+                boss2.y = boss2.baseY - 150;
+            } else if (boss2.attackTimer < 42) {
+                boss2.x += (Math.random() - 0.5) * 15;
+                boss2.y -= 3;
+            } else if (boss2.attackTimer < 55) {
+                boss2.y += 25 * speedMult;
+            } else if (boss2.attackTimer < 85) {
+                // Stay
+            } else if (boss2.attackTimer < 110) {
+                boss2.y -= 10;
+            } else {
+                boss2.attackPattern = 0;
+                boss2.attackTimer = 0;
+                boss2.y = boss2.baseY;
+            }
+            break;
+    }
+
+    // Keep within bounds
+    if (boss2.x < 10) boss2.x = 10;
+    if (boss2.x + boss2.width > canvas.width - 10) boss2.x = canvas.width - 10 - boss2.width;
+
+    // Check collision with player
+    if (!player.invincible) {
+        const b2sy = boss2.y - cameraY;
+        if (player.x < boss2.x + boss2.width &&
+            player.x + player.width > boss2.x &&
+            player.y < b2sy + boss2.height &&
+            player.y + player.height > b2sy) {
+            const damage = boss2.attackPattern === 3 ? 6 : 4;
+            player.hp -= damage;
+            updateHPDisplay();
+            playSFX('damage');
+            player.invincible = true;
+            player.invincibleTimer = 90;
+            player.velocityY = -20;
+            player.velocityX = player.x < boss2.x ? -18 : 18;
+        }
+    }
+}
+
+// Draw boss 2 (Dragon)
+function drawBoss2() {
+    if (!boss2.active || boss2Defeated) return;
+
+    const screenY = boss2.y - cameraY;
+    const isEnraged = boss2.hp <= boss2.maxHp / 2;
+
+    ctx.save();
+
+    // Glow effect (purple, red when enraged)
+    if (isEnraged) {
+        ctx.shadowColor = 'rgba(255, 0, 0, 0.8)';
+        ctx.shadowBlur = 30;
+    } else {
+        ctx.shadowColor = 'rgba(136, 0, 255, 0.6)';
+        ctx.shadowBlur = 20;
+    }
+
+    // Draw dragon image
+    if (boss2ImageLoaded) {
+        if (isEnraged && Math.random() < 0.15) {
+            ctx.filter = 'hue-rotate(60deg) brightness(1.5)';
+        }
+        ctx.drawImage(boss2Image, boss2.x, screenY, boss2.width, boss2.height);
+        ctx.filter = 'none';
+    } else {
+        ctx.fillStyle = isEnraged ? '#ff0044' : '#8800ff';
+        ctx.fillRect(boss2.x, screenY, boss2.width, boss2.height);
+    }
+
+    ctx.shadowBlur = 0;
+
+    // HP Bar
+    const hpBarWidth = boss2.width + 50;
+    const hpBarX = boss2.x + boss2.width / 2 - hpBarWidth / 2;
+    const hpBarY = screenY - 25;
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.fillRect(hpBarX, hpBarY, hpBarWidth, 15);
+
+    const hpRatio = boss2.hp / boss2.maxHp;
+    const hpColor = isEnraged ? '#ff0044' : '#8800ff';
+    ctx.fillStyle = hpColor;
+    ctx.fillRect(hpBarX, hpBarY, hpBarWidth * hpRatio, 15);
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(hpBarX, hpBarY, hpBarWidth, 15);
+
+    // Boss 2 name
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 14px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('DORAGON', boss2.x + boss2.width / 2, hpBarY - 5);
+
+    ctx.restore();
 }
 
 // Update heal items
@@ -835,6 +1355,7 @@ function updateHealItems() {
             // Heal player
             player.hp = Math.min(player.hp + 2, player.maxHp);
             updateHPDisplay();
+            playSFX('heal');
             healItems.splice(i, 1);
         }
     }
@@ -963,6 +1484,7 @@ function drawBoss() {
 function gameClear() {
     gameCleared = true;
     gameRunning = false;
+    stopBGM();
     document.getElementById('clear-score').textContent = score;
     document.getElementById('clear-screen').classList.remove('hidden');
 }
@@ -1231,11 +1753,21 @@ function drawPlayer() {
 function gameLoop() {
     if (!gameRunning) return;
 
+    // Full-auto firing when mouse held down
+    if (fullAuto && mouseDown && canShoot) {
+        shoot();
+    }
+    // Also full-auto with F key
+    if (fullAuto && keys.f && canShoot) {
+        shoot();
+    }
+
     drawBackground();
     drawStars();
     updatePlayer();
     updateEnemies();
     updateBoss();
+    updateBoss2();
     updateBullets();
     updateHealItems();
     drawPlatforms();
@@ -1243,13 +1775,14 @@ function gameLoop() {
     drawHealItems();
     drawEnemies();
     drawBoss();
+    drawBoss2();
     drawBullets();
     drawPlayer();
 
-    // Draw crosshair
+    // Draw crosshair (red when full-auto)
     ctx.save();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = fullAuto ? 'rgba(255, 50, 50, 0.9)' : 'rgba(255, 255, 255, 0.8)';
+    ctx.lineWidth = fullAuto ? 3 : 2;
     ctx.beginPath();
     ctx.arc(mouseX, mouseY, 10, 0, Math.PI * 2);
     ctx.stroke();
@@ -1263,6 +1796,14 @@ function gameLoop() {
     ctx.moveTo(mouseX, mouseY + 5);
     ctx.lineTo(mouseX, mouseY + 15);
     ctx.stroke();
+
+    // Full-auto indicator
+    if (fullAuto) {
+        ctx.fillStyle = 'rgba(255, 50, 50, 0.7)';
+        ctx.font = 'bold 10px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('AUTO', mouseX, mouseY + 25);
+    }
     ctx.restore();
 
     requestAnimationFrame(gameLoop);
@@ -1271,6 +1812,14 @@ function gameLoop() {
 // Game over
 function gameOver() {
     gameRunning = false;
+    stopBGM();
+    playSFX('gameover');
+
+    // If fighting boss 2, show revival screen instead
+    if (boss2Spawned && !boss2Defeated) {
+        document.getElementById('revival-screen').classList.remove('hidden');
+        return;
+    }
 
     document.getElementById('final-score').textContent = score;
 
@@ -1286,13 +1835,56 @@ function gameOver() {
     document.getElementById('game-over-screen').classList.remove('hidden');
 }
 
+// Revival function
+function revivePlayer() {
+    document.getElementById('revival-screen').classList.add('hidden');
+    player.hp = player.maxHp;
+    updateHPDisplay();
+    playSFX('powerup');
+    player.invincible = true;
+    player.invincibleTimer = 180; // 3 seconds of invincibility
+
+    // Find a safe platform to respawn on
+    const bossPlatforms = platforms.filter(p => p.isBossPlatform);
+    if (bossPlatforms.length > 0) {
+        const safePlatform = bossPlatforms[0]; // Main ground platform
+        player.x = safePlatform.x + safePlatform.width / 2 - player.width / 2;
+        player.y = safePlatform.y - cameraY - player.height;
+    }
+    player.velocityX = 0;
+    player.velocityY = 0;
+
+    gameRunning = true;
+    startBGM('boss2');
+    gameLoop();
+}
+
+// Give up function
+function giveUpRevival() {
+    document.getElementById('revival-screen').classList.add('hidden');
+
+    document.getElementById('final-score').textContent = score;
+    if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('gravityHighScore', highScore);
+        document.getElementById('high-score').textContent = highScore;
+        document.getElementById('new-record').classList.remove('hidden');
+    } else {
+        document.getElementById('new-record').classList.add('hidden');
+    }
+    document.getElementById('game-over-screen').classList.remove('hidden');
+}
+
 // Start game
 function startGame() {
+    initAudio();
     document.getElementById('start-screen').classList.add('hidden');
     document.getElementById('game-over-screen').classList.add('hidden');
     document.getElementById('clear-screen').classList.add('hidden');
+    document.getElementById('revival-screen').classList.add('hidden');
     initGame();
     gameRunning = true;
+    startBGM('normal');
     gameLoop();
 }
 
@@ -1300,6 +1892,8 @@ function startGame() {
 document.getElementById('start-btn').addEventListener('click', startGame);
 document.getElementById('restart-btn').addEventListener('click', startGame);
 document.getElementById('clear-restart-btn').addEventListener('click', startGame);
+document.getElementById('revival-btn').addEventListener('click', revivePlayer);
+document.getElementById('revival-give-up-btn').addEventListener('click', giveUpRevival);
 
 // Allow starting with Space or Enter
 document.addEventListener('keydown', (e) => {
